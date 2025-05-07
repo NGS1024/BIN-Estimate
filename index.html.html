@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>오조메타 BIM 견적서</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
+  <style>
+    :root {
+      --primary-color: #005b9e;
+      --accent-color: #e0f0ff;
+      --font-family: 'Noto Sans KR', '맑은 고딕', sans-serif;
+      --text-color: #222;
+      --border-color: #ccc;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: var(--font-family);
+      font-size: 14px;
+      color: var(--text-color);
+      background: #f8f9fa;
+      margin: 0;
+      padding: 0;
+    }
+
+    .center {
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    button {
+      padding: 12px 24px;
+      font-size: 16px;
+      background: var(--primary-color);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #00406f;
+    }
+
+    .modal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      display: none; justify-content: center; align-items: center;
+      z-index: 9999;
+    }
+    .modal-content {
+      background: #fff;
+      padding: 30px;
+      border-radius: 10px;
+      width: 500px;
+      max-width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal-content h2 {
+      margin-bottom: 20px;
+      font-size: 18px;
+      color: var(--primary-color);
+    }
+    .close {
+      float: right;
+      font-size: 24px;
+      cursor: pointer;
+    }
+    label {
+      display: block;
+      margin-top: 12px;
+      font-weight: 600;
+    }
+    input, textarea, select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      margin-top: 6px;
+      font-size: 14px;
+    }
+
+    .pdf-page {
+      width: 1000px;
+      margin: 40px auto;
+      padding: 40px;
+      background: #fff;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+      border-radius: 12px;
+    }
+
+    h3 {
+      font-size: 18px;
+      margin-bottom: 16px;
+      border-bottom: 2px solid var(--primary-color);
+      padding-bottom: 4px;
+      color: var(--primary-color);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px 8px;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    th {
+      background: var(--accent-color);
+      color: #003366;
+    }
+    td.cost-cell {
+      text-align: right;
+      font-weight: bold;
+    }
+
+    .cover-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 16px;
+    }
+
+    .company-name {
+      font-size: 16px;
+      color: var(--primary-color);
+      font-weight: 600;
+    }
+
+    .pdf-footer {
+      font-size: 13px;
+      text-align: center;
+      color: #666;
+      margin-top: 40px;
+      border-top: 1px solid #ccc;
+      padding-top: 10px;
+    }
+
+    .cover-title span.title-bold {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    #projectTitlePDF {
+      font-size: 20px;
+      font-weight: bold;
+      color: #222;
+      margin-left: 8px;
+    }
+
+.page-break {
+  page-break-before: always;
+  break-before: always;
+}
+
+#pdf_extraText {
+  page-break-inside: avoid;
+  break-inside: avoid;
+  white-space: pre-line; /* 줄바꿈 유지 */
+}
+
+
+  </style>
+
+
+
+
+
+</head>
+<body>
+<div class="center">
+  <button onclick="openModal()">✍️ 견적 입력</button>
+</div>
+
+<div id="estimateModal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeModal()">&times;</span>
+    <h2>BIM 견적 입력</h2>
+    <label>프로젝트명 <input id="inputTitle" value="BIM 모델링" /></label>
+    <label>총 연면적 (㎡) <input type="number" id="inputArea" value="0" /></label>
+    <label>제외 면적 (㎡) <input type="number" id="inputExcluded" value="0" /></label>
+    <label>㎡당 공사비 (원/㎡) <input type="number" id="inputCost" value="840000" /></label>
+    <label>설계 요율 (%) <input type="number" id="inputDesignRate" value="4.2623" /></label>
+
+    <label>BIM 3D모델링 범위
+      <select id="inputModeling">
+        <option value="">-- 선택 --</option>
+        <option value="A. 건축/구조 모델링">A. 건축/구조 모델링</option>
+        <option value="B. 건축/구조/MEP 모델링">B. 건축/구조/MEP 모델링</option>
+        <option value="C. 건축/구조/MEP/토목 모델링">C. 건축/구조/MEP/토목 모델링</option>
+        <option value="D. 건축/구조/MEP/토목/철근배근 모델링">D. 건축/구조/MEP/토목/철근배근 모델링</option>
+      </select>
+    </label>
+
+    <label>BIM 검토 및 분석
+      <select id="inputAnalysis">
+        <option value="">-- 선택 --</option>
+        <option value="A. 선택안함">A. 선택안함</option>
+        <option value="B. 간섭검토 및 충돌체크">B. 간섭검토 및 충돌체크</option>
+        <option value="C. 간섭검토 및 충돌체크 / 가물량산출">C. 간섭검토 및 충돌체크 / 가물량산출</option>
+        <option value="D. 간섭검토 및 충돌체크 / 가물량산출 / 시공전 수정포함">D. 간섭검토 및 충돌체크 / 가물량산출 / 시공전 수정포함</option>
+        <option value="E. 간섭검토 및 충돌체크 / 가물량산출 / 시공대응 수정포함">E. 간섭검토 및 충돌체크 / 가물량산출 / 시공대응 수정포함</option>
+      </select>
+    </label>
+
+    <label>BIM 협업 및 문서화
+      <select id="inputCollaboration">
+        <option value="">-- 선택 --</option>
+        <option value="A. 선택안함">A. 선택안함</option>
+        <option value="B. BIM 협업 툴 제공">B. BIM 협업 툴 제공</option>
+        <option value="C. BIM 협업 툴 제공 / 공정관련 사항 기록 및 공유">C. BIM 협업 툴 제공 / 공정관련 사항 기록 및 공유</option>
+      </select>
+    </label>
+
+    <label>BIM 공정관리
+      <select id="inputProcess">
+        <option value="">-- 선택 --</option>
+        <option value="A. 선택안함">A. 선택안함</option>
+        <option value="B. 4D시뮬레이션 (공정관리)">B. 4D시뮬레이션 (공정관리)</option>
+        <option value="C. 4D시뮬레이션 (공정관리+유지보수)">C. 4D시뮬레이션 (공정관리+유지보수)</option>
+      </select>
+    </label>
+
+    <label>추가 설명 <textarea id="inputExtra"></textarea></label>
+    <div class="center">
+      <button onclick="onDownloadClick()">📄 PDF 다운로드</button>
+    </div>
+  </div>
+</div>
+
+<div id="pdf-wrapper">
+  <div class="pdf-page">
+    <div class="cover-header">
+
+
+<div class="cover-title">
+  <span class="title-bold">프로젝트명 :</span>
+  <span id="projectTitlePDF" style="font-weight: normal;">BIM 모델링</span>
+</div>
+      <span id="today"></span>
+    </div>
+
+
+<div class="project-info-block" style="margin-top: 16px; line-height: 1.6;">
+  <p><strong>회사명</strong> : (주)오조메타</p>
+  <p><strong>주소</strong> : 인천광역시 연수구 송도동 송도미래로30 (지식산업센터 D동 1009호)</p>
+  <p><strong>담당자</strong> : 김창규 대표 / 010-3030-3924</p>
+  <p><strong>작성일</strong> : <span id="currentDate"></span></p>
+</div>
+
+
+
+ 
+  </div>
+
+  <div class="pdf-page page-break" id="pdf-basis">
+
+
+    <h3>BIM 견적서 요약</h3>
+
+    <div id="summary-costs" style="margin-bottom: 20px;">
+      <p><strong>총 공사비:</strong> <span id="totalConstructionCost">-</span> 원</p>
+      <p><strong>설계비용:</strong> <span id="designFee">-</span> 원</p>
+      <p><strong>BIM 총 비용:</strong> <span id="bimTotalCost">-</span> 원</p>
+      <p><strong>BIM 총 비용(VAT 포함):</strong> <span id="bimTotalCostWithVAT">-</span> 원</p>
+
+    </div>
+
+    <table class="table-fixed">
+
+
+<thead>
+  <tr>
+    <th class="center">번호</th>
+    <th class="center">구분</th>
+    <th>선택 내용</th>
+    <th>세부설명</th>
+    <th class="center">비용(원)</th>
+  </tr>
+</thead>
+
+
+      <tbody>
+        <tr>
+<td class="center">1</td>
+          <td class="center">3D모델링</td>
+          <td id="pdf_summaryModeling"></td>
+          <td id="pdf_detailModeling"></td>
+          <td id="pdf_priceModeling" class="center"></td>
+        </tr>
+        <tr>
+<td class="center">2</td>
+          <td class="center">검토 및 분석</td>
+          <td id="pdf_summaryAnalysis"></td>
+          <td id="pdf_detailAnalysis"></td>
+          <td id="pdf_priceAnalysis" class="center"></td>
+        </tr>
+        <tr>
+<td class="center">3</td>
+          <td class="center">협업 및 문서화</td>
+          <td id="pdf_summaryCollab"></td>
+          <td id="pdf_detailCollab"></td>
+          <td id="pdf_priceCollab" class="center"></td>
+        </tr>
+        <tr>
+<td class="center">4</td>
+          <td class="center">공정관리</td>
+          <td id="pdf_summaryProcess"></td>
+          <td id="pdf_detailProcess"></td>
+          <td id="pdf_priceProcess" class="center"></td>
+        </tr>
+      </tbody>
+
+  <tfoot>
+    <tr>
+      <td colspan="4" style="text-align: center; font-weight: bold;">합계</td>
+      <td id="totalCost" style="text-align: right; font-weight: bold;">-</td>
+    </tr>
+  </tfoot>
+
+
+    </table>
+
+
+<p style="margin-top: 20px; font-size: 13px; color: #666; text-align: center;">
+  ※ 상기 견적은 프로젝트 범위 및 일정에 따라 조정될 수 있습니다.
+</p>
+
+
+   <div class="page-break">
+  <h3>추가 설명</h3>
+  <p id="pdf_extraText"></p>
+</div>
+
+<div class="pdf-footer" style="display: flex; align-items: center; justify-content: center; gap: 16px;">
+  
+
+
+<img src="data:image/png;base64,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" style="width: 120px; height: auto;" alt="오조메타 로고">
+
+
+  <p style="margin: 0;">
+    <strong>(주)오조메타</strong><br />
+    인천광역시 연수구 송도동 송도미래로30 (지식산업센터 D동 1009호)<br />
+    담당자: 김창규 대표 / 010-3030-3924
+  </p>
+</div>
+
+</div>
+
+<script>
+const detailMap = {
+  modeling: {
+    "A. 건축/구조 모델링": "설계도면 기반 모델링 (외장, 내장, 창호 포함)",
+    "B. 건축/구조/MEP 모델링": "설계도면 기반 모델링 (외장, 내장, 창호, 기계, 전기, 소방, 통신 포함)",
+    "C. 건축/구조/MEP/토목 모델링": "설계도면 기반 모델링 (외장, 내장, 창호, 기계, 전기, 소방, 통신, 토목 포함)",
+    "D. 건축/구조/MEP/토목/철근배근 모델링": "설계도면 기반 모델링 (외장, 내장, 창호,기계,전기,소방,통신,토목,철근배근 포함)"
+  },
+  analysis: {
+    "A. 선택안함": "",
+    "B. 간섭검토 및 충돌체크": "건축/구조 간 모델 병합 후 Clash Test 수행",
+    "C. 간섭검토 및 충돌체크 / 가물량산출": "건축/구조 간 모델 병합 후 Clash Test 수행/가물량 산출",
+    "D. 간섭검토 및 충돌체크 / 가물량산출 / 시공전 수정포함": "건축/구조 간 모델 병합 후 Clash Test 수행/가물량 산출(1회 수정포함)",
+    "E. 간섭검토 및 충돌체크 / 가물량산출 / 시공대응 수정포함": "건축/구조 간 모델 병합 후 Clash Test 수행/가물량 산출(시공시 변경된 부분 포함)"
+  },
+  collab: {
+    "A. 선택안함": "",
+    "B. BIM 협업 툴 제공": "설계~시공 협업 툴 제공",
+    "C. BIM 협업 툴 제공 / 공정관련 사항 기록 및 공유": "BIM 회의 대응, 회의록, 보고서 PPT 제작 등"
+  },
+  process: {
+    "A. 선택안함": "",
+    "B. 4D시뮬레이션 (공정관리)": "공정관리 시뮬레이션 제공",
+    "C. 4D시뮬레이션 (공정관리+유지보수)": "공정 + 유지보수 시뮬레이션 제공"
+  }
+};
+
+const options = {
+  modeling: Object.keys(detailMap.modeling),
+  analysis: Object.keys(detailMap.analysis),
+  collab: Object.keys(detailMap.collab),
+  process: Object.keys(detailMap.process)
+};
+
+function populateSelect(id, values) {
+  const el = document.getElementById(id);
+  el.innerHTML = '<option value="">-- 선택 --</option>' + values.map(v => `<option value="${v}">${v}</option>`).join('');
+}
+
+function openModal() {
+  document.getElementById("estimateModal").style.display = "flex";
+}
+
+function closeModal() {
+  document.getElementById("estimateModal").style.display = "none";
+}
+
+function onDownloadClick() {
+  closeModal();
+  setTimeout(collectAndGenerate, 300);
+}
+
+function collectAndGenerate() {
+  const data = {
+    projectTitle: document.getElementById("inputTitle").value,
+    bimModeling: document.getElementById("inputModeling").value,
+    bimAnalysis: document.getElementById("inputAnalysis").value,
+    bimCollab: document.getElementById("inputCollaboration").value,
+    bimProcess: document.getElementById("inputProcess").value,
+    extraText: document.getElementById("inputExtra").value
+  };
+
+  fillPdfTemplate(data);
+
+  // 계산 시작
+  const area = parseFloat(document.getElementById("inputArea").value) || 0;
+  const excluded = parseFloat(document.getElementById("inputExcluded").value) || 0;
+  const costPerM2 = parseFloat(document.getElementById("inputCost").value) || 0;
+  const designRate = parseFloat(document.getElementById("inputDesignRate").value) || 0;
+
+
+  const netArea = area - excluded;
+  const totalConstructionCost = netArea * costPerM2;
+  const designFee = Math.round(totalConstructionCost * (designRate / 100));
+
+  // 선택값과 요율 매핑
+  const rModeling = rateMap.modeling[data.bimModeling] || 0;
+  const rAnalysis = rateMap.analysis[data.bimAnalysis] || 0;
+  const rCollab = rateMap.collab[data.bimCollab] || 0;
+  const rProcess = rateMap.process[data.bimProcess] || 0;
+
+  const priceModeling = Math.round(designFee * rModeling);
+  const priceAnalysis = Math.round(designFee * rAnalysis);
+  const priceCollab = Math.round(designFee * rCollab);
+  const priceProcess = Math.round(designFee * rProcess);
+  const bimTotal = priceModeling + priceAnalysis + priceCollab + priceProcess;
+  const bimTotalWithVAT = Math.round(bimTotal * 1.1);
+
+  // 화면에 출력
+  document.getElementById("totalConstructionCost").innerText = totalConstructionCost.toLocaleString();
+  document.getElementById("designFee").innerText = designFee.toLocaleString();
+  document.getElementById("bimTotalCost").innerText = bimTotal.toLocaleString();
+  document.getElementById("bimTotalCostWithVAT").innerText = bimTotalWithVAT.toLocaleString();
+
+
+  document.getElementById("pdf_priceModeling").innerText = priceModeling.toLocaleString();
+  document.getElementById("pdf_priceAnalysis").innerText = priceAnalysis.toLocaleString();
+  document.getElementById("pdf_priceCollab").innerText = priceCollab.toLocaleString();
+  document.getElementById("pdf_priceProcess").innerText = priceProcess.toLocaleString();
+
+document.getElementById("totalCost").innerText = bimTotal.toLocaleString();
+
+
+  // PDF 생성
+  const element = document.getElementById("pdf-wrapper");
+
+html2pdf().set({
+  margin: 0,
+  filename: `${data.projectTitle || "BIM_견적서"}.pdf`,
+  html2canvas: { scale: 2 },
+  jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+  pagebreak: { mode: ['css', 'legacy'] } // 추가된 부분!
+}).from(element).save();
+
+
+
+
+}
+
+    
+
+const rateMap = {
+  modeling: {
+    "A. 건축/구조 모델링": 0.10,
+    "B. 건축/구조/MEP 모델링": 0.15,
+    "C. 건축/구조/MEP/토목 모델링": 0.20,
+    "D. 건축/구조/MEP/토목/철근배근 모델링": 0.35
+  },
+  analysis: {
+    "A. 선택안함": 0,
+    "B. 간섭검토 및 충돌체크": 0.05,
+    "C. 간섭검토 및 충돌체크 / 가물량산출": 0.10,
+    "D. 간섭검토 및 충돌체크 / 가물량산출 / 시공전 수정포함": 0.15,
+    "E. 간섭검토 및 충돌체크 / 가물량산출 / 시공대응 수정포함": 0.25
+  },
+  collab: {
+    "A. 선택안함": 0,
+    "B. BIM 협업 툴 제공": 0.05,
+    "C. BIM 협업 툴 제공 / 공정관련 사항 기록 및 공유": 0.15
+  },
+  process: {
+    "A. 선택안함": 0,
+    "B. 4D시뮬레이션 (공정관리)": 0.10,
+    "C. 4D시뮬레이션 (공정관리+유지보수)": 0.20
+  }
+};
+
+
+function fillPdfTemplate(data) {
+
+  document.getElementById("projectTitlePDF").innerText = data.projectTitle;
+  document.getElementById("pdf_summaryModeling").innerText = data.bimModeling;
+  document.getElementById("pdf_summaryAnalysis").innerText = data.bimAnalysis;
+  document.getElementById("pdf_summaryCollab").innerText = data.bimCollab;
+  document.getElementById("pdf_summaryProcess").innerText = data.bimProcess;
+
+document.getElementById("pdf_detailModeling").innerHTML = addLineBreakInParentheses(detailMap.modeling[data.bimModeling] || "");
+document.getElementById("pdf_detailAnalysis").innerHTML = addLineBreakInParentheses(detailMap.analysis[data.bimAnalysis] || "");
+document.getElementById("pdf_detailCollab").innerHTML = addLineBreakInParentheses(detailMap.collab[data.bimCollab] || "");
+document.getElementById("pdf_detailProcess").innerHTML = addLineBreakInParentheses(detailMap.process[data.bimProcess] || "");
+
+
+  document.getElementById("pdf_priceModeling").innerText = "150,000";
+  document.getElementById("pdf_priceAnalysis").innerText = "120,000";
+  document.getElementById("pdf_priceCollab").innerText = "100,000";
+  document.getElementById("pdf_priceProcess").innerText = "180,000";
+  document.getElementById("pdf_extraText").innerText = data.extraText;
+}
+
+window.onload = function() {
+
+  // 오늘 날짜 출력
+  const today = new Date();
+  const formatted = today.getFullYear() + '.' +
+                    String(today.getMonth() + 1).padStart(2, '0') + '.' +
+                    String(today.getDate()).padStart(2, '0');
+  document.getElementById("currentDate").innerText = formatted;
+
+
+  // 드롭다운 초기화
+  populateSelect("inputModeling", options.modeling);
+  populateSelect("inputAnalysis", options.analysis);
+  populateSelect("inputCollaboration", options.collab);
+  populateSelect("inputProcess", options.process);
+};
+
+function addLineBreakInParentheses(text) {
+  return text.replace("(", "<br>(");
+}
+
+</script>
+</body>
+</html>
